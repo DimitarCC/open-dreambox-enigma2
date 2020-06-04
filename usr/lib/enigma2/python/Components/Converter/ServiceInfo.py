@@ -1,6 +1,8 @@
 from Components.Converter.Converter import Converter
-from enigma import iServiceInformation, iPlayableService, iAudioType_ENUMS as iAt, CT_MPEG2, CT_H264, CT_MPEG1, CT_MPEG4_PART2, CT_VC1, CT_VC1_SIMPLE_MAIN, CT_H265, CT_DIVX311, CT_DIVX4, CT_SPARK, CT_VP6, CT_VP8, CT_VP9, CT_H263, CT_MJPEG, CT_REAL, CT_AVS, CT_UNKNOWN
+from enigma import iServiceInformation, iPlayableService, iAudioType_ENUMS as iAt, iDVBFrontend as FE, CT_MPEG2, CT_H264, CT_MPEG1, CT_MPEG4_PART2, CT_VC1, CT_VC1_SIMPLE_MAIN, CT_H265, CT_DIVX311, CT_DIVX4, CT_SPARK, CT_VP6, CT_VP8, CT_VP9, CT_H263, CT_MJPEG, CT_REAL, CT_AVS, CT_UNKNOWN
 from Components.Element import cached
+from Tools.Transponder import ConvertToHumanReadable
+import time, threading
 
 class ServiceInfo(Converter, object):
 	HAS_TELETEXT = 0
@@ -24,6 +26,14 @@ class ServiceInfo(Converter, object):
 	IS_HDR = 18
 	VIDEO_PARAMS = 19
 	VIDEO_TYPE = 20
+	FREQUENCY = 21
+	MODULATION = 22
+	TUNERTYPE = 23
+	SATPOSITION = 24
+	PROVIDER = 25
+	AUDIOCODEC = 26
+	HAS_MULTIAUDIO = 27
+	TUNER_SYSTEM_SAT = 28
 
 	def __init__(self, type):
 		Converter.__init__(self, type)
@@ -48,9 +58,18 @@ class ServiceInfo(Converter, object):
 				"Sid": (self.SID, (iPlayableService.evUpdatedInfo,)),
 				"Framerate": (self.FRAMERATE, (iPlayableService.evVideoSizeChanged, iPlayableService.evVideoFramerateChanged)),
 				"TransferBPS": (self.TRANSFERBPS, (iPlayableService.evUpdatedInfo,)),
-				"HasSubtitles": (self.HAS_SUBTITLES, (iPlayableService.evUpdatedInfo,)),
+				"HasSubtitles": (self.HAS_SUBTITLES, (iPlayableService.evUpdatedInfo, iPlayableService.evSubtitleListChanged)),
+				"HasAudioTracks": (self.HAS_MULTIAUDIO, (iPlayableService.evUpdatedInfo, iPlayableService.evStart)),
+				"Frequency": (self.FREQUENCY, (iPlayableService.evStart,)),
+				"Modulation": (self.MODULATION, (iPlayableService.evStart,)),
+				"TunerType": (self.TUNERTYPE, (iPlayableService.evStart,)),
+				"SatPos": (self.SATPOSITION, (iPlayableService.evStart,)),
+				"Provider": (self.PROVIDER, (iPlayableService.evStart,)),
+				"AudioCodec": (self.AUDIOCODEC, (iPlayableService.evUpdatedInfo,)),
+				"TunerSystemIsSat": (self.TUNER_SYSTEM_SAT, (iPlayableService.evUpdatedInfo,)),
 			}[type]
 		self.need_wa = iPlayableService.evVideoSizeChanged in self.interesting_events
+
 
 	def reuse(self):
 		self.need_wa = iPlayableService.evVideoSizeChanged in self.interesting_events
@@ -67,8 +86,19 @@ class ServiceInfo(Converter, object):
 	def getBoolean(self):
 		service = self.source.service
 		if self.type == self.HAS_SUBTITLES:
+			from Screens.InfoBar import InfoBar
+			#if InfoBar.instance:
+			#srvv = InfoBar.instance.session.nav.getCurrentService()
+			#sbss = srvv.subtitleTracks()
+			#sbs = srvv and srvv.subtitleTracks()
+			#return sbs and sbs.getNumberOfSubtitleTracks() > 0
+			#time.sleep(3)
 			subtitle = service and service.subtitleTracks()
 			return subtitle and subtitle.getNumberOfSubtitleTracks() > 0
+			
+		if self.type == self.HAS_MULTIAUDIO:
+			audiotracks = service and service.audioTracks()
+			return audiotracks and audiotracks.getNumberOfTracks() > 1
 
 		info = service and service.info()
 		if not info:
@@ -85,6 +115,7 @@ class ServiceInfo(Converter, object):
 				idx = 0
 				while idx < n:
 					i = audio.getTrackInfo(idx)
+					description = i.getDescription();
 					if i.getType() in (iAt.atAC3, iAt.atDDP, iAt.atDTS, iAt.atDTSHD):
 						return True
 					idx += 1
@@ -142,12 +173,56 @@ class ServiceInfo(Converter, object):
 			frame_rate = (frame_rate+500)/1000
 			return "%d%s%d" % (yres, 'p' if progressive else 'i', frame_rate)
 		elif self.type == self.VIDEO_TYPE:
-			vtype = info.getInfo(iServiceInformation.sVideoType)
-			return { CT_MPEG2 : "MPEG2", CT_H264 : "H.264", CT_MPEG1 : "MPEG1", CT_MPEG4_PART2 : "MPEG4", 
-				  CT_VC1 : "VC1", CT_VC1_SIMPLE_MAIN : "WMV3", CT_H265 : "HEVC", CT_DIVX311 : "DIVX3", 
-				  CT_DIVX4 : "DIVX4", CT_SPARK : "SPARK", CT_VP6 : "VP6", CT_VP8 : "VP8", 
-				  CT_VP9 : "VP9", CT_H263 : "H.263", CT_MJPEG : "MJPEG", CT_REAL : "RV", 
-				  CT_AVS : "AVS", CT_UNKNOWN : "UNK" }[vtype]
+				vtype = info.getInfo(iServiceInformation.sVideoType)
+				return { CT_MPEG2 : "MPEG2", CT_H264 : "H.264", CT_MPEG1 : "MPEG1", CT_MPEG4_PART2 : "MPEG4", 
+						 CT_VC1 : "VC1", CT_VC1_SIMPLE_MAIN : "WMV3", CT_H265 : "HEVC", CT_DIVX311 : "DIVX3", 
+						 CT_DIVX4 : "DIVX4", CT_SPARK : "SPARK", CT_VP6 : "VP6", CT_VP8 : "VP8", 
+						 CT_VP9 : "VP9", CT_H263 : "H.263", CT_MJPEG : "MJPEG", CT_REAL : "RV", 
+						 CT_AVS : "AVS", CT_UNKNOWN : "UNK" }[vtype]
+		elif self.type in (self.FREQUENCY, self.SATPOSITION, self.TUNER_SYSTEM_SAT):
+			tp_data = info.getInfoObject(iServiceInformation.sTransponderData)
+			if tp_data is not None:					
+				if tp_data["tuner_type"] in (FE.feSatellite,FE.feSatellite2):
+					if self.type == self.FREQUENCY:
+						return "%d MHz" %(tp_data["frequency"]/1000)
+					if self.type == self.SATPOSITION:
+						position = tp_data["orbital_position"]
+						if position > 1800: # west
+							return "%.1f " %(float(3600 - position)/10) + _("W")
+						else:
+							return "%.1f " %(float(position)/10) + _("E")
+					if self.type == self.TUNER_SYSTEM_SAT:
+						fedata = ConvertToHumanReadable(tp_data)
+						tunersystem = fedata.get("system") or ""
+						return tunersystem == "DVB-S" or tunersystem == "DVB-S2"
+				elif tp_data["tuner_type"] == FE.feCable:
+					if self.type == self.FREQUENCY:
+						return "%d MHz" %(tp_data["frequency"]/1000)
+				elif tp_data["tuner_type"] in (FE.feTerrestrial,FE.feTerrestrial2):
+					if self.type == self.FREQUENCY:
+						return "%d MHz" %(tp_data["frequency"]/1000000)
+		elif self.type in (self.MODULATION, self.TUNERTYPE):
+			tp_data = info.getInfoObject(iServiceInformation.sTransponderData)
+			if tp_data is not None:
+				isTerrestrial = tp_data["tuner_type"] in (FE.feTerrestrial,FE.feTerrestrial2)
+				try:
+					tp_data = ConvertToHumanReadable(tp_data)	
+				except KeyError:
+					return ""
+				if self.type == self.MODULATION and isTerrestrial == False:
+					return str(tp_data["modulation"])
+				if self.type == self.TUNERTYPE:
+					return str(tp_data["tuner_type"])
+		elif self.type == self.AUDIOCODEC:
+			audio = service.audioTracks()
+			if audio:
+				currentTrack = audio.getCurrentTrack()
+				if currentTrack != -1:
+					i = audio.getTrackInfo(currentTrack)
+					description = i.getDescription()
+					return description
+		elif self.type == self.PROVIDER:
+			return self.getServiceInfoString(info, iServiceInformation.sProvider)
 		return ""
 
 	text = property(getText)

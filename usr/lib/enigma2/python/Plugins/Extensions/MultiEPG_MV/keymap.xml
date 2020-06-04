@@ -1,0 +1,27 @@
+<keymap>
+	<map context="QuickButtonActions">
+		<key id="KEY_RED" mapto="red" flags="b" />
+		<key id="KEY_GREEN" mapto="green" flags="b" />
+		<key id="KEY_GREEN" mapto="green_long" flags="l" />
+		<key id="KEY_YELLOW" mapto="yellow" flags="b" />
+		<key id="KEY_BLUE" mapto="blue" flags="b" />
+		<key id="KEY_VIDEO" mapto="pvr" flags="b" />
+		<key id="KEY_RADIO" mapto="radio" flags="b" />
+		<key id="KEY_TEXT" mapto="text" flags="b" />
+		<key id="KEY_RECORD" mapto="instantRecord" flags="b" />
+		<key id="KEY_MENU" mapto="menu" flags="b" />
+		<key id="KEY_INFO" mapto="info" flags="b" />
+		<device name="compatible: pcKeyboard">
+			<key id="KEY_F1" mapto="red" flags="b" />
+			<key id="KEY_F2" mapto="green" flags="b" />
+			<key id="KEY_F2" mapto="green_long" flags="l" />
+			<key id="KEY_F3" mapto="yellow" flags="b" />
+			<key id="KEY_F4" mapto="blue" flags="b" />
+			<key id="KEY_F5" mapto="info" flags="b" />
+			<key id="KEY_F6" mapto="menu" flags="b" />
+			<key id="KEY_F8" mapto="pvr" flags="b" />
+			<key id="KEY_F10" mapto="radio" flags="b" />
+			<key id="KEY_F11" mapto="text" flags="b" />
+		</device>
+	</map>
+</keymap>

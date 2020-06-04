@@ -1,5 +1,5 @@
 from enigma import eLabel, eSize, eServiceReference, RT_VALIGN_CENTER, RT_HALIGN_LEFT, RT_HALIGN_RIGHT, gFont, eListbox, eServiceCenter, eListboxPythonMultiContent, eListboxServiceContent, eEPGCache,\
-	getDesktop, eTimer
+	getDesktop, eTimer, iServiceInformation
 from skin import parseColor, parseFont, TemplatedColors, componentSizes, TemplatedListFonts
 from timer import TimerEntry
 from Components.config import config
@@ -30,6 +30,9 @@ class PiconLoader():
 			return None
 
 	def findPicon(self, sRef):
+		pngname = "%s%s.svg" % (config.usage.configselection_piconspath.value, sRef)
+		if fileExists(pngname):
+			return pngname
 		pngname = "%s%s.png" % (config.usage.configselection_piconspath.value, sRef)
 		if not fileExists(pngname):
 			pngname = ""
@@ -50,6 +53,7 @@ class ServiceList(HTMLComponent, GUIComponent):
 	KEY_PICON_WIDTH = "piconWidth"
 	KEY_PICON_WIDTH_BIG = "piconWidthBig"
 	KEY_PICON_OFFSET = "piconOffset"
+	KEY_CRYPTO_OFFSET = "cryptoIconOffset"
 	KEY_PROGRESS_BAR_WIDTH = "progressBarWidth"
 	KEY_PROGRESS_BAR_MARGIN = "progressBarMargin"
 	KEY_PROGRESS_BAR_HEIGHT = "progressBarHeight"
@@ -78,7 +82,15 @@ class ServiceList(HTMLComponent, GUIComponent):
 		self.picDVB_S = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_dvb_s-fs8.png"))
 		self.picDVB_C = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_dvb_c-fs8.png"))
 		self.picDVB_T = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_dvb_t-fs8.png"))
+		self.picStream = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_stream-fs8.png"))
+		self.picCrypt = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "icons/icon_crypt.png"))
+		self.picDVB_S_S = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_dvb_s-fs8-s.png"))
+		self.picDVB_C_S = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_dvb_c-fs8-s.png"))
+		self.picDVB_T_S = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_dvb_t-fs8-s.png"))
+		self.picStream_S = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_stream-fs8-s.png"))
+		self.picCrypt_S = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "icons/icon_crypt-s.png"))
 		self.picServiceGroup = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_service_group-fs8.png"))
+		self.picRecIcon = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_rec-fs8.png"))
 		self.markedForeground = 0xffffff
 		self.markedBackground = 0xff0000
 		self.markedForegroundSelected = 0xffffff
@@ -212,7 +224,7 @@ class ServiceList(HTMLComponent, GUIComponent):
 		self.textRenderer.setText(text)
 		return self.textRenderer.calculateSize().width()
 
-	def _buildOptionEntryServicePixmap(self, service):
+	def _buildOptionEntryServicePixmap(self, service, marked, selected):
 		pixmap = None
 		if service.flags & eServiceReference.isMarker:
 			pixmap = self.picMarker
@@ -223,11 +235,20 @@ class ServiceList(HTMLComponent, GUIComponent):
 		else:
 			orbpos = service.getUnsignedData(4) >> 16;
 			if orbpos == 0xFFFF:
-				pixmap = self.picDVB_C
+				if marked == 2 or marked == 1 or selected:
+					pixmap = self.picDVB_C_S
+				else:
+					pixmap = self.picDVB_C
 			elif orbpos == 0xEEEE:
-				pixmap = self.picDVB_T
+				if marked == 2 or marked == 1 or selected:
+					pixmap = self.picDVB_T_S
+				else:
+					pixmap = self.picDVB_T
 			else:
-				pixmap = self.picDVB_S
+				if marked == 2 or marked == 1 or selected:
+					pixmap = self.picDVB_S_S
+				else:
+					pixmap = self.picDVB_S
 		return pixmap
 
 	def _buildOptionEntryAddTimeDisplay(self, event, isPlayable, columnStyle):
@@ -322,6 +343,8 @@ class ServiceList(HTMLComponent, GUIComponent):
 		servicenameWidth = config.usage.configselection_servicenamecolwidth.value
 		columnStyle = config.usage.configselection_columnstyle.value
 		additionalposition = config.usage.configselection_additionaltimedisplayposition.value
+		showServiceIcons = config.usage.configselection_showserviceicons.value
+		showCryptoIcons = config.usage.configselection_showcryptoicons.value
 		bigPicons = self.mode == self.MODE_FAVOURITES and config.usage.configselection_bigpicons.value
 		secondlineinfo = config.usage.configselection_secondlineinfo.value
 		# get service information
@@ -329,6 +352,7 @@ class ServiceList(HTMLComponent, GUIComponent):
 		isMarker = service.flags & eServiceReference.isMarker
 		isPlayable = not(service.flags & eServiceReference.isDirectory or isMarker)
 		recording = self._checkHasRecording(service, isPlayable)
+		recordingicontype = config.usage.configselection_recordingicontype.value
 
 		marked = 0
 		if self.l.isCurrentMarked() and selected:
@@ -347,7 +371,7 @@ class ServiceList(HTMLComponent, GUIComponent):
 			backgroundColorSel = self.markedBackgroundSelected
 			forgroundColor = additionalInfoColor = serviceDescriptionColor = backgroundColor = None
 		else:
-			if recording:
+			if recording and recordingicontype == "1":
 				forgroundColor = additionalInfoColor = serviceDescriptionColor = self.recordingColor
 				forgroundColorSel = additionalInfoColorSelected = serviceDescriptionColorSelected = self.recordingColorSelected
 				backgroundColor = backgroundColorSel = None
@@ -366,22 +390,65 @@ class ServiceList(HTMLComponent, GUIComponent):
 			res.append((eListboxPythonMultiContent.TYPE_TEXT, 0, 0, width , height, 1, RT_HALIGN_RIGHT, "", forgroundColor, forgroundColorSel, backgroundColor, backgroundColorSel))
 
 		info = self.service_center.info(service)
+		isCrypted = info.getInfo(service, iServiceInformation.sIsCrypted) == 1
 		serviceName = info and info.getName(service) or "<n/a>"
 		event = info and info.getEvent(service)
 		index = self.getCurrentIndex()
 		xoffset = self._componentSizes.get(self.KEY_BEGIN_MARGIN, 5)
-		pixmap = self._buildOptionEntryServicePixmap(service)
+		pixmap = self._buildOptionEntryServicePixmap(service, marked, selected)
+		isStream = "%3a//" in service.toString().lower()
+		if isStream:
+			if marked == 2 or marked == 1 or selected:
+				pixmap = self.picStream_S
+			else:
+				pixmap = self.picStream
 		drawProgressbar = isPlayable and showProgressbar
 		progressBarWidth = self._progressBarWidth(withOffset=True)
 		textOffset = self._componentSizes.get(self.KEY_TEXT_OFFSET, 10)
-
-		if pixmap is not None:
-			pixmap_size = self.picMarker.size()
-			pix_width = pixmap_size.width()
-			pix_height = pixmap_size.height()
-			ypos = (height - pix_height) / 2
-			res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHABLEND, xoffset, ypos, pix_width, pix_height, pixmap))
-			xoffset += pix_width + self._componentSizes.get(self.KEY_PICON_OFFSET, 8)
+		
+		if service.flags & eServiceReference.isMarker:
+			if pixmap is not None:
+				pixmap_size = self.picMarker.size()
+				pix_width = pixmap_size.width()
+				pix_height = pixmap_size.height()
+				ypos = (height - pix_height) / 2
+				if config.usage.configselection_serviceandcryptpos.value == "2":
+					xoffset += 30
+				res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHABLEND, xoffset, ypos, pix_width, pix_height, pixmap))
+				xoffset += pix_width + 20
+		elif config.usage.configselection_serviceandcryptpos.value == "1":
+			if pixmap is not None and showServiceIcons:
+				pixmap_size = self.picMarker.size()
+				pix_width = pixmap_size.width()
+				pix_height = pixmap_size.height()
+				ypos = (height - pix_height) / 2
+				res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHABLEND, xoffset, ypos, pix_width, pix_height, pixmap))
+				xoffset += pix_width + self._componentSizes.get(self.KEY_PICON_OFFSET, 8)
+				if marked == 2 or marked == 1 or selected:
+					pixmap = self.picCrypt_S
+				else:
+					pixmap = self.picCrypt
+				if pixmap is not None and showCryptoIcons:
+					cryptPixmap_size = pixmap.size()
+					cryptpix_width = cryptPixmap_size.width()
+					cryptpix_height = cryptPixmap_size.height()
+					ypos = (height - cryptpix_height) / 2
+					if isCrypted:
+						res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHABLEND, xoffset, ypos, cryptpix_width, cryptpix_height, pixmap))
+					xoffset += cryptpix_width + self._componentSizes.get(self.KEY_CRYPTO_OFFSET, 8)
+			elif showCryptoIcons:
+				if marked == 2 or marked == 1 or selected:
+					pixmap = self.picCrypt_S
+				else:
+					pixmap = self.picCrypt
+				if pixmap is not None:
+					cryptPixmap_size = pixmap.size()
+					cryptpix_width = cryptPixmap_size.width()
+					cryptpix_height = cryptPixmap_size.height()
+					ypos = (height - cryptpix_height) / 2
+					if isCrypted:
+						res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHABLEND, xoffset, ypos, cryptpix_width, cryptpix_height, pixmap))
+					xoffset += cryptpix_width + self._componentSizes.get(self.KEY_CRYPTO_OFFSET, 8)
 
 		if self.mode != self.MODE_NORMAL:
 			# servicenumber
@@ -404,6 +471,48 @@ class ServiceList(HTMLComponent, GUIComponent):
 			xoffset += pix_width
 			xoffset += self._componentSizes.get(self.KEY_PICON_OFFSET, 8)
 
+		if config.usage.configselection_serviceandcryptpos.value == "2" and not service.flags & eServiceReference.isMarker:
+			if pixmap is not None and showServiceIcons:
+				pixmap_size = self.picMarker.size()
+				pix_width = pixmap_size.width()
+				pix_height = pixmap_size.height()
+				ypos = (height - pix_height) / 2
+				res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHABLEND, xoffset, ypos, pix_width, pix_height, pixmap))
+				xoffset += pix_width + self._componentSizes.get(self.KEY_PICON_OFFSET, 8)
+				if marked == 2 or marked == 1 or selected:
+					pixmap = self.picCrypt_S
+				else:
+					pixmap = self.picCrypt
+				if pixmap is not None and showCryptoIcons:
+					cryptPixmap_size = pixmap.size()
+					cryptpix_width = cryptPixmap_size.width()
+					cryptpix_height = cryptPixmap_size.height()
+					ypos = (height - cryptpix_height) / 2
+					if isCrypted:
+						res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHABLEND, xoffset, ypos, cryptpix_width, cryptpix_height, pixmap))
+					xoffset += cryptpix_width + self._componentSizes.get(self.KEY_CRYPTO_OFFSET, 8)
+			elif showCryptoIcons:
+				if marked == 2 or marked == 1 or selected:
+					pixmap = self.picCrypt_S
+				else:
+					pixmap = self.picCrypt
+				if pixmap is not None:
+					cryptPixmap_size = pixmap.size()
+					cryptpix_width = cryptPixmap_size.width()
+					cryptpix_height = cryptPixmap_size.height()
+					ypos = (height - cryptpix_height) / 2
+					if isCrypted:
+						res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHABLEND, xoffset, ypos, cryptpix_width, cryptpix_height, pixmap))
+					xoffset += cryptpix_width + self._componentSizes.get(self.KEY_CRYPTO_OFFSET, 8)
+					
+		if recording and recordingicontype == "2" and self.picRecIcon is not None:
+			recPixmap_size = self.picRecIcon.size()
+			recpix_width = recPixmap_size.width()
+			recpix_height = recPixmap_size.height()
+			ypos = (height - recpix_height) / 2
+			res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHABLEND, xoffset, ypos, recpix_width, recpix_height, self.picRecIcon))
+			xoffset += recpix_width + 8
+					
 		# progressbar between servicenumber and servicename
 		if drawProgressbar and progressbarPosition == "0":
 			res.append(self._buildOptionEntryProgressBar(event, xoffset, width, height))

@@ -9,7 +9,7 @@ def menuCallback(slot, session, **kwargs):
 
 def menu(menuid, **kwargs):
 	ret = [ ]
-	if menuid == "setup" and socketHandler:
+	if menuid == "devices" and socketHandler:
 		connections = socketHandler.numConnections()
 		slot = 0;
 		valid = 0;

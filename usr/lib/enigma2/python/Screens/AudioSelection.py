@@ -95,7 +95,7 @@ class AudioSelection(Screen, ConfigListScreen):
 			"menu": self.keyMenu,
 			"ok": self.keyOk,
 			"cancel": self.cancel,
-			"audioSelection": self.cancel,
+			"audioSelection": self.keyYellow,
 			"up": self.keyUp,
 			"down": self.keyDown,
 			"previousSection": self.enablePrevious,

@@ -15,7 +15,7 @@ try:
 	haveHbbtvApplication = True
 except:
 	haveHbbtvApplication = False
-from Components.config import config, ConfigBoolean, ConfigClock
+from Components.config import config, ConfigBoolean, ConfigClock, ConfigYesNo, ConfigSelection
 from Components.SystemInfo import SystemInfo
 from Components.UsageConfig import preferredInstantRecordPath, defaultMoviePath, defaultStorageDevice
 from EpgSelection import EPGSelection, OutdatedEPGSelection
@@ -346,12 +346,19 @@ class InfoBarNumberZap:
 			self.servicelist.zap()
 
 config.misc.initialchannelselection = ConfigBoolean(default = True)
+config.misc.keepcurrentserviceselection = ConfigYesNo(default = True)
 
 class InfoBarChannelSelection:
 	""" ChannelSelection - handles the channelSelection dialog and the initial
 	channelChange actions which open the channelSelection dialog """
 	def __init__(self):
 		#instantiate forever
+		config.usage.configselection_showserviceicons = ConfigYesNo(default=True)
+		config.usage.configselection_showcryptoicons = ConfigYesNo(default=True)
+		#config for recording options
+		config.usage.configselection_recordingicontype = ConfigSelection([("1", _("Color")),("2", _("Icon"))], default="1")
+		#config for service and crypto icons position
+		config.usage.configselection_serviceandcryptpos = ConfigSelection([("1", _("Before service number")),("2", _("After Picon"))], default="1")
 		self.servicelist = self.session.instantiateDialog(ChannelSelection, zPosition=0)
 		self.servicelist.onRootChanged.append(self.__onServiceListRootChanged)
 
@@ -405,11 +412,13 @@ class InfoBarChannelSelection:
 		self.servicelist.historyNext()
 
 	def switchChannelUp(self):
-		self.servicelist.moveUp()
+		if not config.misc.keepcurrentserviceselection.value:
+			self.servicelist.moveUp()
 		self.session.execDialog(self.servicelist)
 
 	def switchChannelDown(self):
-		self.servicelist.moveDown()
+		if not config.misc.keepcurrentserviceselection.value:
+			self.servicelist.moveDown()
 		self.session.execDialog(self.servicelist)
 
 	def openServiceList(self):

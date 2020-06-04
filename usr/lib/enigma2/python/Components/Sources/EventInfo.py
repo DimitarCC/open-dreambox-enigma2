@@ -22,7 +22,7 @@ class EventInfo(PerServiceBase, Source, object):
 	def getEvent(self):
 		service = self.navcore.getCurrentService()
 		info = service and service.info()
-		ret = info and info.getEvent(self.now_or_next)
+		ret = None #info and info.getEvent(self.now_or_next)
 		if not ret and info:
 			refstr = info.getInfoString(iServiceInformation.sServiceref)
 			ret = self.epgQuery(eServiceReference(refstr), -1, self.now_or_next and 1 or 0)

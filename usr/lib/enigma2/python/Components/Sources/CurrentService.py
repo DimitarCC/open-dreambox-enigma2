@@ -19,6 +19,7 @@ class CurrentService(PerServiceBase, Source):
 				iPlayableService.evVideoTypeReady: self.serviceEvent,
 				iPlayableService.evVideoProgressiveChanged: self.serviceEvent,
 				iPlayableService.evVideoFramerateChanged: self.serviceEvent,
+				iPlayableService.evSubtitleListChanged: self.serviceEvent,
 			}, with_event=True)
 		self.navcore = navcore
 

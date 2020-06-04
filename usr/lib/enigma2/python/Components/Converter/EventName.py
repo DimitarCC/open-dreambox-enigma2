@@ -5,6 +5,7 @@ class EventName(Converter, object):
 	NAME = 0
 	SHORT_DESCRIPTION = 1
 	EXTENDED_DESCRIPTION = 2
+	ID = 3
 	FULL_DESCRIPTION = 3
 	ID = 4
 
@@ -28,7 +29,10 @@ class EventName(Converter, object):
 			return ""
 			
 		if self.type == self.NAME:
-			return event.getEventName()
+			if event.getEventName()[:31] == "Visibile gratis su tv terrestre":
+		  		return event.getShortDescription().title()
+		  	else:
+				return event.getEventName()
 		elif self.type == self.SHORT_DESCRIPTION:
 			return event.getShortDescription()
 		elif self.type == self.EXTENDED_DESCRIPTION:

@@ -1,7 +1,7 @@
 from Screen import Screen
 from Components.ActionMap import ActionMap
 from Components.ConfigList import ConfigListScreen
-from Components.config import config, getConfigListEntry
+from Components.config import config, getConfigListEntry, ConfigYesNo
 from Components.Sources.StaticText import StaticText
 
 
@@ -20,7 +20,7 @@ class ChannelSelectionDisplaySettings(Screen, ConfigListScreen):
 	def __init__(self, session):
 		Screen.__init__(self, session)
 		self.setTitle(_("ChannelSelection Display Settings"))
-
+ 
 
 		self.createConfig()
 
@@ -82,6 +82,11 @@ class ChannelSelectionDisplaySettings(Screen, ConfigListScreen):
 		self.showservicename = config.usage.configselection_showservicename
 		self.showbigpicons = config.usage.configselection_bigpicons
 		self.piconpath = config.usage.configselection_piconspath
+		self.showserviceicons = config.usage.configselection_showserviceicons
+		self.showcryptoicons = config.usage.configselection_showcryptoicons
+		self.showrecordingiconsoptions = config.usage.configselection_recordingicontype
+		self.serviceandcryptpos = config.usage.configselection_serviceandcryptpos
+		self.keepcurentservice = config.misc.keepcurrentserviceselection
 
 	def createSetup(self, widget):
 		self.list = []
@@ -92,6 +97,11 @@ class ChannelSelectionDisplaySettings(Screen, ConfigListScreen):
 		self.list.append(getConfigListEntry(_("Show service numbers"), config.usage.configselection_showlistnumbers))
 		self.showPiconsEntry = getConfigListEntry(_("Show Picons"), self.showpicons)
 		self.list.append(self.showPiconsEntry)
+		self.list.append(getConfigListEntry(_("Show service icons in Channel list"), config.usage.configselection_showserviceicons))
+		self.list.append(getConfigListEntry(_("Show crypto icons in Channel list"), config.usage.configselection_showcryptoicons))
+		self.list.append(getConfigListEntry(_("Service and Crypto icons position"), config.usage.configselection_serviceandcryptpos))
+		if config.usage.configselection_showrecordings.value:
+			self.list.append(getConfigListEntry(_("Recording Icon Type"), config.usage.configselection_recordingicontype))
 		if self.showpicons.value:
 			self.piconPathEntry = getConfigListEntry(_("Picons path"), self.piconpath)
 			self.list.append(self.piconPathEntry)
