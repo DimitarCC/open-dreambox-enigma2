@@ -1,4 +1,4 @@
-from enigma import eLabel, eSize, eServiceReference, RT_VALIGN_CENTER, RT_HALIGN_LEFT, RT_HALIGN_RIGHT, gFont, eListbox, eServiceCenter, eListboxPythonMultiContent, eListboxServiceContent, eEPGCache,\
+from enigma import eLabel, eSize, eServiceReference, RT_VALIGN_CENTER, RT_HALIGN_LEFT, RT_HALIGN_RIGHT, RT_VALIGN_BOTTOM, RT_VALIGN_TOP, gFont, eListbox, eServiceCenter, eListboxPythonMultiContent, eListboxServiceContent, eEPGCache,\
 	getDesktop, eTimer, iServiceInformation
 from skin import parseColor, parseFont, TemplatedColors, componentSizes, TemplatedListFonts
 from timer import TimerEntry
@@ -91,6 +91,7 @@ class ServiceList(HTMLComponent, GUIComponent):
 		self.picCrypt_S = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "icons/icon_crypt-s.png"))
 		self.picServiceGroup = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_service_group-fs8.png"))
 		self.picRecIcon = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_rec-fs8.png"))
+		self.picNowIcon = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "ico_now-fs8.png"))
 		self.markedForeground = 0xffffff
 		self.markedBackground = 0xff0000
 		self.markedForegroundSelected = 0xffffff
@@ -138,8 +139,10 @@ class ServiceList(HTMLComponent, GUIComponent):
 		self.numberoffset = 0
 		self.is_playable_ignore = eServiceReference()
 		self.root = None
-
-		self.itemHeight = self._componentSizes.get(self.KEY_SERVICE_ITEM_HEIGHT, 28)
+		if config.usage.configselection_2lines.value:
+			self.itemHeight = self._componentSizes.get(self.KEY_SERVICE_ITEM_HEIGHT, 28) * 2
+		else:
+			self.itemHeight = self._componentSizes.get(self.KEY_SERVICE_ITEM_HEIGHT, 28)
 		self.itemHeightHigh = self._componentSizes.get(self.KEY_SERVICE_ITEM_HEIGHT_LARGE, 60)
 		self.l.setItemHeight(self.itemHeight)
 		self.onSelectionChanged = [ ]
@@ -233,7 +236,7 @@ class ServiceList(HTMLComponent, GUIComponent):
 		elif service.flags & eServiceReference.isDirectory:
 			pixmap = self.picFolder
 		else:
-			orbpos = service.getUnsignedData(4) >> 16;
+			orbpos = service.getUnsignedData(4) >> 16
 			if orbpos == 0xFFFF:
 				if marked == 2 or marked == 1 or selected:
 					pixmap = self.picDVB_C_S
@@ -330,9 +333,11 @@ class ServiceList(HTMLComponent, GUIComponent):
 		return False
 
 	def buildOptionEntry(self, service, **args):
+		is2LinesLayout = config.usage.configselection_2lines.value
 		width = self.l.getItemSize().width()
 		width -= self._componentSizes.get(self.KEY_END_MARGIN, 5)
 		height = self.l.getItemSize().height()
+		half_height = height / 2
 		selected = args["selected"]
 		res = [ None ]
 		showListNumbers = config.usage.configselection_showlistnumbers.value
@@ -353,6 +358,7 @@ class ServiceList(HTMLComponent, GUIComponent):
 		isPlayable = not(service.flags & eServiceReference.isDirectory or isMarker)
 		recording = self._checkHasRecording(service, isPlayable)
 		recordingicontype = config.usage.configselection_recordingicontype.value
+		channelNumberText = ""
 
 		marked = 0
 		if self.l.isCurrentMarked() and selected:
@@ -455,17 +461,34 @@ class ServiceList(HTMLComponent, GUIComponent):
 			if not (service.flags & eServiceReference.isMarker) and showListNumbers:
 				markers_before = self.l.getNumMarkersBeforeCurrent()
 				text = "%d" % (self.numberoffset + index + 1 - markers_before)
-				nameWidth = self._componentSizes.get(self.KEY_SERVICE_NUMBER_WIDTH, 50)
-				res.append((eListboxPythonMultiContent.TYPE_TEXT, xoffset, 0, nameWidth , height, 1, RT_HALIGN_RIGHT|RT_VALIGN_CENTER, text, forgroundColor, forgroundColorSel, backgroundColor, backgroundColorSel))
-				xoffset += nameWidth + textOffset
-
+				channelNumberText = text
+				if not is2LinesLayout:
+					nameWidth = self._componentSizes.get(self.KEY_SERVICE_NUMBER_WIDTH, 50)
+					res.append((eListboxPythonMultiContent.TYPE_TEXT, xoffset, 0, nameWidth , height, 1, RT_HALIGN_RIGHT|RT_VALIGN_CENTER, text, forgroundColor, forgroundColorSel, backgroundColor, backgroundColorSel))
+					xoffset += nameWidth + textOffset
+		itemHeight = height
+		secondLineYPos = 0 #0 when there is no second line
+		verticalpos = RT_VALIGN_CENTER
+		verticalpossl = RT_VALIGN_CENTER
+		servicenamelinetext = serviceName
+		secondlinenegativeoffset = 0 #0 if there is no second line
+		if is2LinesLayout and not (service.flags & eServiceReference.isMarker) and event and isPlayable:
+			itemHeight = half_height
+			secondLineYPos = half_height
+			verticalpos = RT_VALIGN_BOTTOM
+			verticalpossl = RT_VALIGN_TOP
+		if is2LinesLayout and not (service.flags & eServiceReference.isMarker) and channelNumberText != "":
+			servicenamelinetext = "%s. %s" % (channelNumberText, serviceName)
 		# picons
 		if isPlayable and showPicons:
 			picon = self._buildOptionEntryServicePicon(service)
 			if bigPicons:
 				pix_width = self._componentSizes.get(self.KEY_PICON_WIDTH_BIG, 108)
 			else:
-				pix_width = self._componentSizes.get(self.KEY_PICON_WIDTH, 58)
+				if is2LinesLayout:
+					pix_width = self._componentSizes.get(self.KEY_PICON_WIDTH, 58) * 2
+				else:
+					pix_width = self._componentSizes.get(self.KEY_PICON_WIDTH, 58)
 			if picon:
 				res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHABLEND, xoffset, 0, pix_width, height, picon))
 			xoffset += pix_width
@@ -476,7 +499,11 @@ class ServiceList(HTMLComponent, GUIComponent):
 				pixmap_size = self.picMarker.size()
 				pix_width = pixmap_size.width()
 				pix_height = pixmap_size.height()
-				ypos = (height - pix_height) / 2
+				if is2LinesLayout and event and isPlayable:
+					ypos = (itemHeight - pix_height - 2)
+					secondlinenegativeoffset = pix_width + self._componentSizes.get(self.KEY_PICON_OFFSET, 8)
+				else:
+					ypos = (itemHeight - pix_height) / 2
 				res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHABLEND, xoffset, ypos, pix_width, pix_height, pixmap))
 				xoffset += pix_width + self._componentSizes.get(self.KEY_PICON_OFFSET, 8)
 				if marked == 2 or marked == 1 or selected:
@@ -487,7 +514,11 @@ class ServiceList(HTMLComponent, GUIComponent):
 					cryptPixmap_size = pixmap.size()
 					cryptpix_width = cryptPixmap_size.width()
 					cryptpix_height = cryptPixmap_size.height()
-					ypos = (height - cryptpix_height) / 2
+					if is2LinesLayout and event and isPlayable:
+						ypos = (itemHeight - cryptpix_height - 5)
+						secondlinenegativeoffset += pix_width + self._componentSizes.get(self.KEY_PICON_OFFSET, 8)
+					else:
+						ypos = (itemHeight - cryptpix_height) / 2
 					if isCrypted:
 						res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHABLEND, xoffset, ypos, cryptpix_width, cryptpix_height, pixmap))
 					xoffset += cryptpix_width + self._componentSizes.get(self.KEY_CRYPTO_OFFSET, 8)
@@ -509,9 +540,23 @@ class ServiceList(HTMLComponent, GUIComponent):
 			recPixmap_size = self.picRecIcon.size()
 			recpix_width = recPixmap_size.width()
 			recpix_height = recPixmap_size.height()
-			ypos = (height - recpix_height) / 2
-			res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHABLEND, xoffset, ypos, recpix_width, recpix_height, self.picRecIcon))
-			xoffset += recpix_width + 8
+			if is2LinesLayout:
+				ypos = half_height + 10
+			else:
+				ypos = (height - recpix_height) / 2
+			res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHABLEND, xoffset - secondlinenegativeoffset + 15, ypos, recpix_width, recpix_height, self.picRecIcon))
+			if not is2LinesLayout:
+				xoffset += recpix_width + 8
+		elif not recording and event and isPlayable and is2LinesLayout:
+			recPixmap_size = self.picNowIcon.size()
+			recpix_width = recPixmap_size.width()
+			recpix_height = recPixmap_size.height()
+			if is2LinesLayout:
+				ypos = half_height + 10
+			else:
+				ypos = (height - recpix_height) / 2
+			res.append((eListboxPythonMultiContent.TYPE_PIXMAP_ALPHABLEND, xoffset - secondlinenegativeoffset + 15, ypos, recpix_width, recpix_height, self.picNowIcon))
+			#xoffset += recpix_width + 8
 					
 		# progressbar between servicenumber and servicename
 		if drawProgressbar and progressbarPosition == "0":
@@ -579,13 +624,14 @@ class ServiceList(HTMLComponent, GUIComponent):
 				if drawProgressbar and progressbarPosition == "2":
 					# progressbar after service description
 					maxLength -= progressBarWidth
-				length = self._calcTextWidth(serviceName, font=self.serviceNameFont, size=eSize(maxLength,0)) + textOffset
-				res.append((eListboxPythonMultiContent.TYPE_TEXT, xoffset, 0, length , height, 2, RT_HALIGN_LEFT|RT_VALIGN_CENTER, serviceName, forgroundColor, forgroundColorSel, backgroundColor, backgroundColorSel))
-				xoffset += length
+				length = self._calcTextWidth(servicenamelinetext, font=self.serviceNameFont, size=eSize(maxLength,0)) + textOffset
+				res.append((eListboxPythonMultiContent.TYPE_TEXT, xoffset, 0, length , itemHeight, 2, RT_HALIGN_LEFT|verticalpos, servicenamelinetext, forgroundColor, forgroundColorSel, backgroundColor, backgroundColorSel))
+				if not is2LinesLayout:
+					xoffset += length
 				if addtimedisplay != "":
 					if additionalposition == "1":
 						# add time text after service description
-						text = "(%s %s)" % (event.getEventName(), addtimedisplay)
+						text = "%s %s" % (event.getEventName(), addtimedisplay)
 					else:
 						# add time text before service description
 						text = "(%s %s)" % (addtimedisplay, event.getEventName())
@@ -596,12 +642,12 @@ class ServiceList(HTMLComponent, GUIComponent):
 					# progressbar after service description
 					length -= progressBarWidth
 				# service description
-				res.append((eListboxPythonMultiContent.TYPE_TEXT, xoffset, 0, length , height, 3, RT_HALIGN_LEFT|RT_VALIGN_CENTER, text, serviceDescriptionColor, serviceDescriptionColorSelected, backgroundColor, backgroundColorSel))
+				res.append((eListboxPythonMultiContent.TYPE_TEXT, xoffset, secondLineYPos, length , itemHeight, 3, RT_HALIGN_LEFT|verticalpossl, text, serviceDescriptionColor, serviceDescriptionColorSelected, backgroundColor, backgroundColorSel))
 				if drawProgressbar and progressbarPosition == "2":
 					xoffset += length + textOffset / 2
 					res.append(self._buildOptionEntryProgressBar(event, xoffset, width, height))
 			else:
-				res.append((eListboxPythonMultiContent.TYPE_TEXT, xoffset, 0, width - xoffset , height, 2, RT_HALIGN_LEFT|RT_VALIGN_CENTER, serviceName, forgroundColor, forgroundColorSel, backgroundColor, backgroundColorSel))
+				res.append((eListboxPythonMultiContent.TYPE_TEXT, xoffset, 0, width - xoffset , itemHeight, 2, RT_HALIGN_LEFT|RT_VALIGN_CENTER, servicenamelinetext, forgroundColor, forgroundColorSel, backgroundColor, backgroundColorSel))
 		return res
 
 	def applySkin(self, desktop, parent):
@@ -646,7 +692,10 @@ class ServiceList(HTMLComponent, GUIComponent):
 				if pic:
 					self.picServiceEventProgressbar = pic
 			elif attrib == "serviceItemHeight":
-				self.itemHeight = int(value)
+				if config.usage.configselection_2lines.value:
+					self.itemHeight = int(value) * 2
+				else:
+					self.itemHeight = int(value)
 			elif attrib == "serviceItemHeightHigh":
 				self.itemHeightHigh = int(value)
 			elif attrib == "serviceNameFont":

@@ -1,5 +1,5 @@
 ##
-## Picon renderer by Gruffy .. some speedups by Ghost
+## ServiceType renderer by DimitarCC
 ##
 from Renderer import Renderer
 from enigma import ePixmap, eEnv, iServiceInformation, iPlayableService

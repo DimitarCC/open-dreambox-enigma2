@@ -11,6 +11,7 @@ class EventName(Converter, object):
 
 	def __init__(self, type):
 		Converter.__init__(self, type)
+
 		if type == "Description":
 			self.type = self.SHORT_DESCRIPTION
 		elif type == "ExtendedDescription":

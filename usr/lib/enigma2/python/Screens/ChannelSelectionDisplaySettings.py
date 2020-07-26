@@ -76,6 +76,7 @@ class ChannelSelectionDisplaySettings(Screen, ConfigListScreen):
 	def createConfig(self):
 		self.additionEventInfo = config.usage.configselection_showadditionaltimedisplay
 		self.columnStyle = config.usage.configselection_columnstyle
+		self.2LineStyle = config.usage.configselection_2lines
 		self.progressbarposition = config.usage.configselection_progressbarposition
 		self.showeventprogress = config.usage.show_event_progress_in_servicelist
 		self.showpicons = config.usage.configselection_showpicons
@@ -92,6 +93,7 @@ class ChannelSelectionDisplaySettings(Screen, ConfigListScreen):
 		self.list = []
 		self.columnStyleEntry = getConfigListEntry(_("Column style"), self.columnStyle)
 		self.list.append(self.columnStyleEntry)
+		self.list.append(getConfigListEntry(_("Two lines layout"), config.usage.configselection_2lines))
 #		self.list.append(getConfigListEntry(_("Show settings in channel context menu"), config.usage.configselection_showsettingsincontextmenu))
 		self.list.append(getConfigListEntry(_("Show recordings"), config.usage.configselection_showrecordings))
 		self.list.append(getConfigListEntry(_("Show service numbers"), config.usage.configselection_showlistnumbers))

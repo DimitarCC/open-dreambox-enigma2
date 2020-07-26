@@ -353,12 +353,14 @@ class InfoBarChannelSelection:
 	channelChange actions which open the channelSelection dialog """
 	def __init__(self):
 		#instantiate forever
+		#config for channel selection screen 
 		config.usage.configselection_showserviceicons = ConfigYesNo(default=True)
 		config.usage.configselection_showcryptoicons = ConfigYesNo(default=True)
 		#config for recording options
 		config.usage.configselection_recordingicontype = ConfigSelection([("1", _("Color")),("2", _("Icon"))], default="1")
 		#config for service and crypto icons position
 		config.usage.configselection_serviceandcryptpos = ConfigSelection([("1", _("Before service number")),("2", _("After Picon"))], default="1")
+		config.usage.configselection_2lines = ConfigYesNo(default=True)
 		self.servicelist = self.session.instantiateDialog(ChannelSelection, zPosition=0)
 		self.servicelist.onRootChanged.append(self.__onServiceListRootChanged)
 
